@@ -8,6 +8,7 @@ A Home Assistant Lovelace card that looks and behaves like the built-in alarm pa
 - **Pick any icon.** Each button has an icon picker in the visual editor, so anything in Material Design Icons (or any other icon set you have installed) can be used. Home, dog and padlock, for example.
 - **Rename any button.** "Custom bypass" can read "Dog". The state chip uses the same label and icon when that mode is active.
 - **Understands custom state names.** Some integrations report a custom mode by its own name instead of `armed_custom_bypass`. A button lights up when the entity state matches its standard state, its label, or any extra state names you list for it.
+- **Says what a mode does.** An optional line under the buttons describes the active mode, and can watch an entity such as an automation so it warns you when the thing it describes is switched off.
 - **Optional always-on buttons.** Show every mode plus Disarm at all times, with the active one highlighted, for panels that can switch straight from one armed mode to another.
 - **Three styles.** Default follows your theme and Home Assistant's alarm state colours. Bold and Light use a gradient tinted by state (disarmed, armed, pending, triggered).
 - **Visual editor.** No YAML needed.
@@ -57,6 +58,8 @@ mode_buttons: always
 | `icon_<action>` | built-in icon | Icon for a button, e.g. `icon_arm_custom_bypass: mdi:dog-side`. `<action>` is any arm action or `disarm`. |
 | `label_<action>` | Home Assistant's label | Text for a button. Also used on the state chip while that mode is active. |
 | `alias_<action>` | none | Comma-separated extra entity states that count as this mode, e.g. `Custom 1`. Not case sensitive. |
+| `description_<action>` | none | A line of text shown under the buttons while that mode is active. Use `description_disarm` for the disarmed state. |
+| `check_<action>` | none | An entity (an automation, for example) the description depends on. If it is off, unavailable or missing while the mode is active, the line turns into a warning that names it. |
 
 ## Notes
 

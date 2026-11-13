@@ -1,12 +1,12 @@
 /*
- * Alarm Mode Card v1.0.0
+ * Alarm Mode Card v1.1.0
  * A Home Assistant alarm panel card that looks and behaves like the built-in
  * alarm panel, with a pickable icon and label on every arm button.
  * https://github.com/mycrouch/alarm-mode-card
  * MIT License - Jason Crouch
  */
 (() => {
-  const VERSION = "1.0.0";
+  const VERSION = "1.1.0";
   const TAG = "alarm-mode-card";
   const EDITOR_TAG = "alarm-mode-card-editor";
   const DOMAIN = "alarm_control_panel";
@@ -138,6 +138,10 @@
         st ? [st.state, st.attributes.friendly_name, st.attributes.code_format, st.attributes.code_arm_required] : null,
         this._hass.themes?.darkMode,
         this._hass.locale?.language,
+        [...ARM_ACTIONS, "disarm"].map((a) => {
+          const e = this._config["check_" + a];
+          return e ? this._hass.states[e]?.state ?? null : 0;
+        }),
         normalise(this._config),
       ]);
       if (key === this._key) return;
@@ -212,6 +216,23 @@
                 .join("")}</div>`
             : "");
 
+      // description of the active mode, with an optional health check entity
+      const descKey = active || (disarmed ? "disarm" : null);
+      let descHtml = "";
+      if (descKey && !unavailable) {
+        const text = cfg["description_" + descKey];
+        const check = cfg["check_" + descKey];
+        const cst = check ? this._hass.states[check] : null;
+        const bad = check && (!cst || ["off", "unavailable", "unknown"].includes(cst.state));
+        if (bad) {
+          const cname = cst?.attributes?.friendly_name || check;
+          const why = !cst ? "not found" : cst.state === "off" ? "is off" : "is " + cst.state;
+          descHtml = `<div class="desc warn"><ha-icon icon="mdi:alert"></ha-icon><span>${esc(text ? text + " — " : "")}${esc(cname)} ${why}</span></div>`;
+        } else if (text) {
+          descHtml = `<div class="desc"><ha-icon icon="mdi:information-outline"></ha-icon><span>${esc(text)}</span></div>`;
+        }
+      }
+
       this.shadowRoot.innerHTML = `
         <style>
           :host { display:block; }
@@ -247,6 +268,10 @@
           .action.on { border-color: var(--amc-accent); background: color-mix(in srgb, var(--amc-accent) 16%, transparent); }
           .action.on ha-icon { color: var(--amc-accent); }
           .action[disabled] { opacity:.4; cursor:default; }
+          .desc { display:flex; align-items:flex-start; gap:8px; font-size:13px; line-height:1.35; color: var(--amc-sub); }
+          .desc ha-icon { --mdc-icon-size:18px; flex:none; color: var(--amc-accent); }
+          .desc.warn { color: var(--amc-text); }
+          .desc.warn ha-icon { color: var(--warning-color, #ffa600); }
           .code {
             width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; border:1px solid var(--amc-line);
             background: var(--amc-fill); color: inherit; font-size:18px; text-align:center; letter-spacing:.3em; outline:none;
@@ -264,6 +289,7 @@
             </button>
           </div>
           <div class="actions">${buttons}</div>
+          ${descHtml}
           ${codeHtml}
         </ha-card>`;
 
@@ -355,6 +381,8 @@
         section("Icons", "icon_", (a) => ({ icon: { placeholder: ACTIONS[a].icon } })),
         section("Labels", "label_", () => ({ text: {} })),
         section("Extra states that count as this mode (comma separated)", "alias_", () => ({ text: {} })),
+        section("Description shown while a mode is active", "description_", () => ({ text: {} })),
+        section("Entity that must be on for the description to hold (optional)", "check_", () => ({ entity: {} })),
       ];
     }
 
@@ -368,7 +396,8 @@
         show_labels: "Show labels under icons",
       };
       if (fixed[s.name]) return fixed[s.name];
-      const m = /^(icon|label|alias)_(.+)$/.exec(s.name || "");
+      const m = /^(icon|label|alias|description|check)_(.+)$/.exec(s.name || "");
+      if (m && m[2] === "disarm" && (m[1] === "description" || m[1] === "check")) return "Disarmed";
       return m && ACTIONS[m[2]] ? ACTIONS[m[2]].label : s.title || s.name;
     }
 
@@ -381,7 +410,7 @@
           ev.stopPropagation();
           const v = { ...ev.detail.value };
           // defensive: un-nest any expandable section that arrived nested
-          ["icon_section", "label_section", "alias_section"].forEach((k) => {
+          ["icon_section", "label_section", "alias_section", "description_section", "check_section"].forEach((k) => {
             if (v[k] && typeof v[k] === "object") Object.assign(v, v[k]);
             delete v[k];
           });
